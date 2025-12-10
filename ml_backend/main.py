@@ -21,14 +21,13 @@ vocab_size = 20000
 class NewsRequest(BaseModel):
     text: str
 
-# ---------------------------------------------------------
+
 # 1. LOAD ARTIFACTS ON STARTUP
-# ---------------------------------------------------------
 @app.on_event("startup")
 async def load_model():
     global model, tokenizer
     try:
-        print("🔄 Loading Model and Tokenizer...")
+        print("Loading Model and Tokenizer...")
         
         # Load Keras Model
         model = tf.keras.models.load_model("fake_news_cnn.keras")
@@ -37,13 +36,12 @@ async def load_model():
         with open("tokenizer.pkl", "rb") as f:
             tokenizer = pickle.load(f)
             
-        print("✔ Model and Tokenizer loaded successfully!")
+        print("Model and Tokenizer loaded successfully!")
     except Exception as e:
-        print(f"❌ Error loading files: {e}")
+        print(f"Error loading files: {e}")
 
-# ---------------------------------------------------------
+
 # 2. PREPROCESSING FUNCTION (Exact copy from training)
-# ---------------------------------------------------------
 def clean_text(text):
     text = str(text).lower()
     text = re.sub(r'https?://\S+|www\.\S+', '', text)  # URLs
@@ -51,9 +49,8 @@ def clean_text(text):
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
-# ---------------------------------------------------------
+
 # 3. PREDICTION ENDPOINT
-# ---------------------------------------------------------
 @app.post("/predict")
 async def predict_news(request: NewsRequest):
     if not model or not tokenizer:
@@ -89,9 +86,8 @@ async def predict_news(request: NewsRequest):
         "raw_probability": float(prediction_prob)
     }
 
-# ---------------------------------------------------------
+
 # 4. ROOT ENDPOINT (Health Check)
-# ---------------------------------------------------------
 @app.get("/")
 def home():
     return {"message": "Fake News Detection API is Running!"}
