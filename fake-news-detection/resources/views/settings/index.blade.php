@@ -160,7 +160,7 @@
                 <p class="text-sm text-slate-500 dark:text-slate-400">Configure parameters and start a new training session.</p>
             </div>
             <div class="p-6">
-                <form action="{{ route('settings.retrain') }}" method="POST" class="space-y-6">
+                <form action="{{ route('settings.retrain') }}" method="POST" class="space-y-6" @submit="startPolling()">
                     @csrf
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
