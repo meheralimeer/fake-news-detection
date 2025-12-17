@@ -1,9 +1,10 @@
-tensorflow
 scikit-learn
 numpy
 pandas
 fastapi
-pickle
 uvicorn
 tqdm
 seaborn
+lime
+joblib
+nltk

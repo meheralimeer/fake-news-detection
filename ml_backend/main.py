@@ -1,93 +1,116 @@
-import numpy as np
+import joblib
 import re
-import pickle
-import tensorflow as tf
+import numpy as np
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from tensorflow.keras.preprocessing.sequence import pad_sequences
+from lime.lime_text import LimeTextExplainer
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+import nltk
 
 # Initialize FastAPI app
-app = FastAPI(title="Fake News Detection API", version="1.0")
+app = FastAPI(title="NewsGuard API", version="2.0")
 
-# Global variables to hold model and tokenizer
+# Global variables
 model = None
-tokenizer = None
+vectorizer = None
+stop_words = None
+lemmatizer = None
 
-# CONSTANTS (Must match your training config)
-MAX_LENGTH = 300
-vocab_size = 20000 
-
-# Define Request Body format
+# Request Models
 class NewsRequest(BaseModel):
     text: str
 
-
 # 1. LOAD ARTIFACTS ON STARTUP
 @app.on_event("startup")
-async def load_model():
-    global model, tokenizer
+async def load_artifacts():
+    global model, vectorizer, stop_words, lemmatizer
     try:
-        print("Loading Model and Tokenizer...")
+        print("Loading NewsGuard Artifacts...")
+        model = joblib.load("newsguard_model.joblib")
+        vectorizer = joblib.load("newsguard_vectorizer.joblib")
         
-        # Load Keras Model
-        model = tf.keras.models.load_model("fake_news_cnn.keras")
-        
-        # Load Tokenizer
-        with open("tokenizer.pkl", "rb") as f:
-            tokenizer = pickle.load(f)
+        # Ensure NLTK resources are available (they should be from training)
+        try:
+            stop_words = set(stopwords.words('english'))
+            lemmatizer = WordNetLemmatizer()
+        except LookupError:
+            nltk.download('stopwords')
+            nltk.download('wordnet')
+            nltk.download('omw-1.4')
+            stop_words = set(stopwords.words('english'))
+            lemmatizer = WordNetLemmatizer()
             
-        print("Model and Tokenizer loaded successfully!")
+        print("Artifacts loaded successfully!")
     except Exception as e:
-        print(f"Error loading files: {e}")
+        print(f"Error loading artifacts: {e}")
 
-
-# 2. PREPROCESSING FUNCTION (Exact copy from training)
-def clean_text(text):
+# 2. PREPROCESSING (Must match training)
+def preprocess_text(text):
     text = str(text).lower()
-    text = re.sub(r'https?://\S+|www\.\S+', '', text)  # URLs
-    text = re.sub(r'[^a-zA-Z\s]', '', text)            # Punctuation/numbers
-    text = re.sub(r'\s+', ' ', text).strip()
-    return text
-
+    text = re.sub(r'https?://\S+|www\.\S+', '', text)
+    text = re.sub(r'[^a-zA-Z\s]', '', text)
+    words = text.split()
+    # We need to handle the case where stop_words/lemmatizer might not be loaded if startup failed
+    if stop_words and lemmatizer:
+        words = [lemmatizer.lemmatize(word) for word in words if word not in stop_words]
+    return " ".join(words)
 
 # 3. PREDICTION ENDPOINT
 @app.post("/predict")
 async def predict_news(request: NewsRequest):
-    if not model or not tokenizer:
+    if not model or not vectorizer:
         raise HTTPException(status_code=500, detail="Model not loaded")
 
-    # A. Clean the input text
-    cleaned_text = clean_text(request.text)
-
-    # B. Tokenize
-    # Note: texts_to_sequences expects a list, so we wrap text in []
-    seq = tokenizer.texts_to_sequences([cleaned_text])
-
-    # C. Pad Sequence
-    padded = pad_sequences(seq, maxlen=MAX_LENGTH)
-
-    # D. Predict
-    # Result is a probability between 0 and 1 (Sigmoid)
-    prediction_prob = model.predict(padded)[0][0]
+    cleaned_text = preprocess_text(request.text)
     
-    # E. Interpret Result
-    # Your labels: 0 = Fake, 1 = True
-    label = "Real" if prediction_prob > 0.5 else "Fake"
+    # Vectorize
+    # transform expects an iterable, so wrap in list
+    features = vectorizer.transform([cleaned_text])
     
-    # Calculate confidence percentage
-    # If prob is 0.1 (Fake), confidence is 0.9 (90% Fake)
-    confidence = prediction_prob if prediction_prob > 0.5 else 1 - prediction_prob
-
+    # Predict
+    # 0 = Fake, 1 = Real (based on training script)
+    prediction_class = model.predict(features)[0]
+    prediction_prob = model.predict_proba(features)[0]
+    
+    label = "Real" if prediction_class == 1 else "Fake"
+    confidence = prediction_prob[1] if prediction_class == 1 else prediction_prob[0]
+    
     return {
         "status": "success",
-        "input_preview": request.text[:50] + "...",
         "prediction": label,
-        "confidence_score": float(confidence),  # e.g., 0.95
-        "raw_probability": float(prediction_prob)
+        "confidence_score": float(confidence),
+        "raw_probability": float(prediction_prob[1]) # Prob of being Real
     }
 
+# 4. EXPLAINABILITY ENDPOINT (LIME)
+@app.post("/explain")
+async def explain_news(request: NewsRequest):
+    if not model or not vectorizer:
+        raise HTTPException(status_code=500, detail="Model not loaded")
 
-# 4. ROOT ENDPOINT (Health Check)
+    # LIME Explainer
+    explainer = LimeTextExplainer(class_names=['Fake', 'Real'])
+    
+    # Create a pipeline function for LIME
+    # LIME passes raw text, we need to preprocess -> vectorize -> predict_proba
+    def pipeline(texts):
+        processed = [preprocess_text(t) for t in texts]
+        features = vectorizer.transform(processed)
+        return model.predict_proba(features)
+
+    # Generate explanation
+    # num_features=10: Top 10 words
+    exp = explainer.explain_instance(request.text, pipeline, num_features=10)
+    
+    # Get list of (word, weight)
+    explanation_list = exp.as_list()
+    
+    return {
+        "status": "success",
+        "explanation": explanation_list
+    }
+
 @app.get("/")
 def home():
-    return {"message": "Fake News Detection API is Running!"}
+    return {"message": "NewsGuard API is Running!"}
