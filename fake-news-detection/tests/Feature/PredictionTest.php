@@ -63,3 +63,32 @@ test('can view specific history item', function () {
     $response->assertSee('A specific history item text.');
     $response->assertSee('88.0%');
 });
+
+test('can predict from url', function () {
+    Http::fake([
+        'example.com/*' => Http::response('<html><body><article>This is a scraped article text that needs to be longer than fifty characters to pass the validation check in the scraper service. So I am adding more text here.</article></body></html>', 200),
+        '*/predict' => Http::response([
+            'status' => 'success',
+            'prediction' => 'Real',
+            'confidence_score' => 0.99,
+            'raw_probability' => 0.99,
+            'input_preview' => 'This is a scraped article text...',
+        ], 200),
+    ]);
+
+    $response = $this->post('/predict', [
+        'news_url' => 'http://example.com/article',
+    ]);
+
+    $response->assertStatus(200);
+    $response->assertSee('REAL NEWS');
+    
+    $this->assertDatabaseHas('prediction_histories', [
+        'news_text' => 'This is a scraped article text that needs to be longer than fifty characters to pass the validation check in the scraper service. So I am adding more text here.',
+    ]);
+});
+
+test('validation requires text or url', function () {
+    $response = $this->post('/predict', []);
+    $response->assertSessionHasErrors(['news_text', 'news_url']);
+});

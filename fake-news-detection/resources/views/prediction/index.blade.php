@@ -11,6 +11,7 @@
     <style>
         body { font-family: 'Inter', sans-serif; }
     </style>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
 
@@ -40,7 +41,7 @@
                     Verify News Credibility
                 </h2>
                 <p class="text-lg text-slate-600 max-w-2xl mx-auto">
-                    Paste the content of a news article below to analyze its authenticity using our advanced AI model.
+                    Analyze authenticity by pasting the article text or providing a direct URL.
                 </p>
             </div>
 
@@ -109,10 +110,33 @@
             @endif
 
             <!-- Input Form -->
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8" x-data="{ mode: '{{ old('news_url', $news_url ?? '') ? 'url' : 'text' }}' }">
+                
+                <!-- Toggle -->
+                <div class="flex justify-center mb-6">
+                    <div class="bg-slate-100 p-1 rounded-lg inline-flex">
+                        <button 
+                            @click="mode = 'text'" 
+                            :class="mode === 'text' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                            class="px-4 py-2 rounded-md text-sm font-medium transition-all"
+                        >
+                            Paste Text
+                        </button>
+                        <button 
+                            @click="mode = 'url'" 
+                            :class="mode === 'url' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                            class="px-4 py-2 rounded-md text-sm font-medium transition-all"
+                        >
+                            Enter URL
+                        </button>
+                    </div>
+                </div>
+
                 <form action="{{ route('predict') }}" method="POST">
                     @csrf
-                    <div class="space-y-4">
+                    
+                    <!-- Text Input -->
+                    <div x-show="mode === 'text'" class="space-y-4">
                         <label for="news_text" class="block text-sm font-medium text-slate-700">
                             News Article Text
                         </label>
@@ -123,12 +147,37 @@
                                 rows="8" 
                                 class="block w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-4 bg-slate-50 placeholder-slate-400 transition-all"
                                 placeholder="Paste the full text of the news article here..."
-                                required
                             >{{ old('news_text', $news_text ?? '') }}</textarea>
                             <div class="absolute bottom-3 right-3 text-xs text-slate-400">
                                 Min 10 chars
                             </div>
                         </div>
+                    </div>
+
+                    <!-- URL Input -->
+                    <div x-show="mode === 'url'" class="space-y-4" style="display: none;">
+                        <label for="news_url" class="block text-sm font-medium text-slate-700">
+                            Article URL
+                        </label>
+                        <div class="flex gap-2">
+                            <input 
+                                type="url" 
+                                id="news_url" 
+                                name="news_url" 
+                                value="{{ old('news_url', $news_url ?? '') }}"
+                                class="block w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-4 bg-slate-50 placeholder-slate-400 transition-all"
+                                placeholder="https://example.com/news-article"
+                            >
+                            <button 
+                                type="button"
+                                @click="navigator.clipboard.readText().then(text => { document.getElementById('news_url').value = text; })"
+                                class="flex-shrink-0 px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-xl text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                title="Paste from Clipboard"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-500">We will extract the main content from this URL to analyze.</p>
                     </div>
 
                     <div class="mt-6">
