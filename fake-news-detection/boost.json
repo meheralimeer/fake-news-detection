@@ -1,0 +1,9 @@
+{
+    "agents": [
+        "gemini"
+    ],
+    "editors": [
+        "gemini"
+    ],
+    "guidelines": []
+}
