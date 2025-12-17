@@ -16,6 +16,12 @@ model = None
 vectorizer = None
 stop_words = None
 lemmatizer = None
+training_status = {
+    "is_training": False,
+    "progress": 0,
+    "current_step": "Idle",
+    "message": ""
+}
 
 # Request Models
 class NewsRequest(BaseModel):
@@ -129,16 +135,42 @@ class RetrainRequest(BaseModel):
 
 @app.post("/retrain")
 async def retrain_model(request: RetrainRequest, background_tasks: BackgroundTasks):
+    global training_status
+    
+    if training_status["is_training"]:
+        raise HTTPException(status_code=400, detail="Training is already in progress")
+    
+    def progress_callback(step: str, progress: int, message: str = ""):
+        global training_status
+        training_status["current_step"] = step
+        training_status["progress"] = progress
+        training_status["message"] = message
+        print(f"Training progress: {progress}% - {step} - {message}")
+    
     def run_training():
-        global model, vectorizer
-        print("Starting background training...")
+        global model, vectorizer, training_status
+        training_status["is_training"] = True
+        training_status["progress"] = 0
+        training_status["current_step"] = "Starting"
+        
         try:
-            result = train(max_features=request.max_features, max_iter=request.max_iter)
+            result = train(
+                max_features=request.max_features, 
+                max_iter=request.max_iter,
+                progress_callback=progress_callback
+            )
+            training_status["progress"] = 100
+            training_status["current_step"] = "Complete"
+            training_status["message"] = f"Training complete. Accuracy: {result['accuracy']:.4f}"
             print(f"Training complete. Accuracy: {result['accuracy']}")
             # Reload artifacts
             load_artifacts()
         except Exception as e:
+            training_status["current_step"] = "Failed"
+            training_status["message"] = str(e)
             print(f"Training failed: {e}")
+        finally:
+            training_status["is_training"] = False
 
     background_tasks.add_task(run_training)
     return {"status": "success", "message": "Training started in background."}
@@ -174,7 +206,8 @@ def get_status():
     return {
         "model_loaded": model is not None,
         "vectorizer_loaded": vectorizer is not None,
-        "model_type": "Logistic Regression + TF-IDF"
+        "model_type": "Logistic Regression + TF-IDF",
+        "training_status": training_status
     }
 
 @app.get("/")

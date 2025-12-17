@@ -24,7 +24,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report
 
-def train(data_dir="ml_model/kaggle/input/fake-and-real-news-dataset", output_dir="ml_backend", max_features=10000, max_iter=1000):
+def train(data_dir="ml_model/kaggle/input/fake-and-real-news-dataset", output_dir="ml_backend", max_features=10000, max_iter=1000, progress_callback=None):
     # 1. Setup & Config
     FAKE_CSV = os.path.join(data_dir, "Fake.csv")
     TRUE_CSV = os.path.join(data_dir, "True.csv")
@@ -44,6 +44,8 @@ def train(data_dir="ml_model/kaggle/input/fake-and-real-news-dataset", output_di
         nltk.download('omw-1.4')
 
     # 2. Data Loading
+    if progress_callback:
+        progress_callback("Loading Data", 10, "Loading CSV files...")
     print("Loading datasets...")
     if not os.path.exists(FAKE_CSV) or not os.path.exists(TRUE_CSV):
         raise FileNotFoundError(f"Datasets not found in {data_dir}. Please ensure Kaggle dataset is present.")
@@ -63,6 +65,8 @@ def train(data_dir="ml_model/kaggle/input/fake-and-real-news-dataset", output_di
     df = df.sample(frac=1, random_state=42).reset_index(drop=True)
 
     # 3. Preprocessing
+    if progress_callback:
+        progress_callback("Preprocessing", 30, "Cleaning and tokenizing text...")
     print("Preprocessing text...")
     stop_words = set(stopwords.words('english'))
     lemmatizer = WordNetLemmatizer()
@@ -84,6 +88,8 @@ def train(data_dir="ml_model/kaggle/input/fake-and-real-news-dataset", output_di
     df['clean_text'] = df['content'].apply(preprocess_text)
 
     # 4. Vectorization
+    if progress_callback:
+        progress_callback("Vectorizing", 50, "Converting text to TF-IDF features...")
     print("Vectorizing...")
     vectorizer = TfidfVectorizer(ngram_range=(1, 2), max_features=int(max_features))
     X = vectorizer.fit_transform(df['clean_text'])
@@ -93,11 +99,15 @@ def train(data_dir="ml_model/kaggle/input/fake-and-real-news-dataset", output_di
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     # 6. Model Training
+    if progress_callback:
+        progress_callback("Training", 70, "Training Logistic Regression model...")
     print("Training Logistic Regression...")
     model = LogisticRegression(max_iter=int(max_iter))
     model.fit(X_train, y_train)
 
     # 7. Evaluation
+    if progress_callback:
+        progress_callback("Evaluating", 90, "Testing model accuracy...")
     print("Evaluating...")
     y_pred = model.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
@@ -105,6 +115,8 @@ def train(data_dir="ml_model/kaggle/input/fake-and-real-news-dataset", output_di
     report = classification_report(y_test, y_pred, output_dict=True)
 
     # 8. Save Artifacts
+    if progress_callback:
+        progress_callback("Saving", 95, "Saving model and vectorizer...")
     print("Saving model and vectorizer...")
     joblib.dump(model, os.path.join(output_dir, "newsguard_model.joblib"))
     joblib.dump(vectorizer, os.path.join(output_dir, "newsguard_vectorizer.joblib"))
