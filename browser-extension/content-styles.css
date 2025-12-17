@@ -1,0 +1,25 @@
+/* Content Script Styles - Inline Highlighting */
+
+mark.newsguard-real {
+    background-color: rgba(16, 185, 129, 0.2);
+    border-bottom: 2px solid #10b981;
+    padding: 2px 0;
+    cursor: help;
+    transition: background-color 0.2s;
+}
+
+mark.newsguard-real:hover {
+    background-color: rgba(16, 185, 129, 0.3);
+}
+
+mark.newsguard-fake {
+    background-color: rgba(239, 68, 68, 0.2);
+    border-bottom: 2px solid #ef4444;
+    padding: 2px 0;
+    cursor: help;
+    transition: background-color 0.2s;
+}
+
+mark.newsguard-fake:hover {
+    background-color: rgba(239, 68, 68, 0.3);
+}

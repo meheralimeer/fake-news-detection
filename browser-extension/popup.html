@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NewsGuard - Fake News Detector</title>
+  <link rel="stylesheet" href="popup-styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>🛡️ NewsGuard</h1>
+      <p class="subtitle">AI-Powered Fake News Detection</p>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading" class="loading hidden">
+      <div class="spinner"></div>
+      <p>Analyzing article...</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="error" class="error hidden">
+      <p id="error-message"></p>
+      <button id="retry-btn" class="btn btn-secondary">Retry</button>
+    </div>
+
+    <!-- No Article State -->
+    <div id="no-article" class="no-article hidden">
+      <p>📰 No article detected on this page.</p>
+      <p class="hint">Try navigating to a news article.</p>
+    </div>
+
+    <!-- Result State -->
+    <div id="result" class="result hidden">
+      <!-- Prediction Badge -->
+      <div id="prediction-badge" class="badge"></div>
+
+      <!-- Confidence -->
+      <div class="confidence">
+        <label>Confidence</label>
+        <div class="progress-bar">
+          <div id="confidence-fill" class="progress-fill"></div>
+        </div>
+        <span id="confidence-text" class="confidence-text"></span>
+      </div>
+
+      <!-- Actions -->
+      <div class="actions">
+        <button id="highlight-btn" class="btn btn-primary">
+          <span>✨</span> Highlight on Page
+        </button>
+        <button id="details-btn" class="btn btn-secondary">
+          <span>📊</span> View Explanation
+        </button>
+      </div>
+
+      <!-- Article Info -->
+      <div class="article-info">
+        <p id="article-title" class="article-title"></p>
+      </div>
+    </div>
+
+    <!-- Analyze Button (when no cached result) -->
+    <div id="analyze-section" class="analyze-section hidden">
+      <button id="analyze-btn" class="btn btn-primary btn-large">
+        Analyze This Article
+      </button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
