@@ -101,10 +101,34 @@
                         </div>
                     </div>
                     <div class="bg-slate-50 px-6 py-4 border-t border-slate-100">
-                        <p class="text-sm text-slate-600">
+                        <p class="text-sm text-slate-600 mb-4">
                             <span class="font-semibold">Analyzed Text Snippet:</span> 
                             "{{ \Illuminate\Support\Str::limit($news_text, 100) }}"
                         </p>
+
+                        @if(isset($explanation) && count($explanation) > 0)
+                            <div class="border-t border-slate-200 pt-4">
+                                <h4 class="text-sm font-semibold text-slate-700 mb-3">Why this prediction?</h4>
+                                <div class="flex flex-wrap gap-2">
+                                    @foreach($explanation as $item)
+                                        @php
+                                            $word = $item[0];
+                                            $weight = $item[1];
+                                            $isPositive = $weight > 0; // Positive weight means it contributes to "Real" (class 1)
+                                            // However, LIME weights are relative to the predicted class usually.
+                                            // In our API, class 1 is Real, 0 is Fake.
+                                            // If prediction is Fake, negative weights push towards Fake.
+                                            // Let's simplify: Green for Real-leaning, Red for Fake-leaning.
+                                            $colorClass = $weight > 0 ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200';
+                                        @endphp
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium border {{ $colorClass }}" title="Influence: {{ number_format($weight, 4) }}">
+                                            {{ $word }}
+                                        </span>
+                                    @endforeach
+                                </div>
+                                <p class="text-xs text-slate-400 mt-2">Words highlighted in <span class="text-green-600 font-medium">Green</span> suggest Real news, while <span class="text-red-600 font-medium">Red</span> suggest Fake news.</p>
+                            </div>
+                        @endif
                     </div>
                 </div>
             @endif

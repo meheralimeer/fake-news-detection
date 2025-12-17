@@ -111,6 +111,72 @@ async def explain_news(request: NewsRequest):
         "explanation": explanation_list
     }
 
+import shutil
+import os
+import sys
+from fastapi import UploadFile, File, BackgroundTasks
+
+# Add project root to path to import ml_model
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from ml_model.train_model import train
+
+# ... (existing code) ...
+
+# 5. RETRAINING ENDPOINT
+class RetrainRequest(BaseModel):
+    max_features: int = 10000
+    max_iter: int = 1000
+
+@app.post("/retrain")
+async def retrain_model(request: RetrainRequest, background_tasks: BackgroundTasks):
+    def run_training():
+        global model, vectorizer
+        print("Starting background training...")
+        try:
+            result = train(max_features=request.max_features, max_iter=request.max_iter)
+            print(f"Training complete. Accuracy: {result['accuracy']}")
+            # Reload artifacts
+            load_artifacts()
+        except Exception as e:
+            print(f"Training failed: {e}")
+
+    background_tasks.add_task(run_training)
+    return {"status": "success", "message": "Training started in background."}
+
+# 6. DATA UPLOAD ENDPOINT
+@app.post("/upload-data")
+async def upload_data(fake_csv: UploadFile = File(None), true_csv: UploadFile = File(None)):
+    data_dir = "ml_model/kaggle/input/fake-and-real-news-dataset"
+    os.makedirs(data_dir, exist_ok=True)
+    
+    saved_files = []
+    
+    if fake_csv:
+        file_path = os.path.join(data_dir, "Fake.csv")
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(fake_csv.file, buffer)
+        saved_files.append("Fake.csv")
+        
+    if true_csv:
+        file_path = os.path.join(data_dir, "True.csv")
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(true_csv.file, buffer)
+        saved_files.append("True.csv")
+        
+    if not saved_files:
+        raise HTTPException(status_code=400, detail="No files uploaded")
+        
+    return {"status": "success", "message": f"Uploaded: {', '.join(saved_files)}"}
+
+# 7. STATUS ENDPOINT
+@app.get("/status")
+def get_status():
+    return {
+        "model_loaded": model is not None,
+        "vectorizer_loaded": vectorizer is not None,
+        "model_type": "Logistic Regression + TF-IDF"
+    }
+
 @app.get("/")
 def home():
     return {"message": "NewsGuard API is Running!"}

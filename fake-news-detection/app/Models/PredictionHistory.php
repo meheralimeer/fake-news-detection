@@ -10,5 +10,10 @@ class PredictionHistory extends Model
         'news_text',
         'prediction',
         'confidence_score',
+        'explanation',
+    ];
+
+    protected $casts = [
+        'explanation' => 'array',
     ];
 }

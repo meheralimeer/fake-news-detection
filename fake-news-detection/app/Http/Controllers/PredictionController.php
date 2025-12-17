@@ -27,17 +27,20 @@ class PredictionController extends Controller
             }
 
             $result = $predictionService->predict($textToAnalyze);
+            $explanation = $predictionService->explain($textToAnalyze);
 
             \App\Models\PredictionHistory::create([
                 'news_text' => $textToAnalyze,
                 'prediction' => $result['prediction'],
                 'confidence_score' => $result['confidence_score'],
+                'explanation' => $explanation,
             ]);
 
             $recentPredictions = \App\Models\PredictionHistory::latest()->take(5)->get();
 
             return view('prediction.index', [
                 'result' => $result,
+                'explanation' => $explanation,
                 'news_text' => $textToAnalyze,
                 'recentPredictions' => $recentPredictions,
                 'news_url' => $request->input('news_url'), // Pass back URL to keep input filled

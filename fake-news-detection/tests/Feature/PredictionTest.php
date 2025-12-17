@@ -74,6 +74,10 @@ test('can predict from url', function () {
             'raw_probability' => 0.99,
             'input_preview' => 'This is a scraped article text...',
         ], 200),
+        '*/explain' => Http::response([
+            'status' => 'success',
+            'explanation' => [['scraped', 0.1], ['article', 0.2]],
+        ], 200),
     ]);
 
     $response = $this->post('/predict', [
@@ -82,13 +86,57 @@ test('can predict from url', function () {
 
     $response->assertStatus(200);
     $response->assertSee('REAL NEWS');
+    $response->assertSee('Why this prediction?');
+    $response->assertSee('scraped');
     
     $this->assertDatabaseHas('prediction_histories', [
         'news_text' => 'This is a scraped article text that needs to be longer than fifty characters to pass the validation check in the scraper service. So I am adding more text here.',
+        'explanation' => json_encode([['scraped', 0.1], ['article', 0.2]]),
     ]);
 });
 
 test('validation requires text or url', function () {
     $response = $this->post('/predict', []);
     $response->assertSessionHasErrors(['news_text', 'news_url']);
+});
+test('settings page loads', function () {
+    Http::fake([
+        '*/status' => Http::response(['model_loaded' => true], 200),
+    ]);
+
+    $response = $this->get('/settings');
+    $response->assertStatus(200);
+    $response->assertSee('Model Settings');
+    $response->assertSee('Model Active');
+});
+
+test('can upload datasets', function () {
+    Http::fake([
+        '*/upload-data' => Http::response(['status' => 'success'], 200),
+    ]);
+
+    $fakeCsv = \Illuminate\Http\UploadedFile::fake()->create('Fake.csv', 100);
+    $trueCsv = \Illuminate\Http\UploadedFile::fake()->create('True.csv', 100);
+
+    $response = $this->post('/settings/upload', [
+        'fake_csv' => $fakeCsv,
+        'true_csv' => $trueCsv,
+    ]);
+
+    $response->assertRedirect();
+    $response->assertSessionHas('success', 'Datasets uploaded successfully!');
+});
+
+test('can trigger retraining', function () {
+    Http::fake([
+        '*/retrain' => Http::response(['status' => 'success'], 200),
+    ]);
+
+    $response = $this->post('/settings/retrain', [
+        'max_features' => 5000,
+        'max_iter' => 500,
+    ]);
+
+    $response->assertRedirect();
+    $response->assertSessionHas('success', 'Training started in background! Check status later.');
 });
